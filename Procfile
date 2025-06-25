@@ -1,1 +1,1 @@
-web: uvicorn app.chatbot_api:app --host 0.0.0.0 --port $PORT
+web: cd app && uvicorn chatbot_api:app --host 0.0.0.0 --port $PORT

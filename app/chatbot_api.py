@@ -38,9 +38,39 @@ def preprocess(text):
     words = [stemmer.stem(w) for w in words]
     return ' '.join(words)
 
+# تحديد المسار الصحيح لملف قاعدة المعرفة
+# الحصول على مجلد الملف الحالي
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# بناء المسار إلى ملف قاعدة المعرفة
+kb_path = os.path.join(current_dir, 'data', 'fitness_knowledge_base.json')
+
+# التحقق من وجود الملف قبل فتحه
+if not os.path.exists(kb_path):
+    # محاولة البحث في مسارات أخرى محتملة
+    alternative_paths = [
+        os.path.join(os.getcwd(), 'data', 'fitness_knowledge_base.json'),
+        os.path.join(os.getcwd(), 'app', 'data', 'fitness_knowledge_base.json'),
+        'data/fitness_knowledge_base.json',
+        'app/data/fitness_knowledge_base.json'
+    ]
+    
+    for alt_path in alternative_paths:
+        if os.path.exists(alt_path):
+            kb_path = alt_path
+            break
+    else:
+        raise FileNotFoundError(f"Knowledge base file not found in any expected paths: {[kb_path] + alternative_paths}")
+
+print(f"Knowledge base file found at: {kb_path}")
+
 # تحميل قاعدة المعرفة
-with open('data/fitness_knowledge_base.json', 'r', encoding='utf-8') as f:
-    kb = json.load(f)
+try:
+    with open(kb_path, 'r', encoding='utf-8') as f:
+        kb = json.load(f)
+    print(f"Knowledge base loaded successfully - items count: {len(kb)}")
+except Exception as e:
+    print(f"Error loading knowledge base: {e}")
+    raise
 
 corpus_raw = [item['question'] for item in kb if item['type'] == 'qa']
 answers = [item['answer'] for item in kb if item['type'] == 'qa']
@@ -120,17 +150,23 @@ def polish_with_openrouter(question, base_answer):
         "max_tokens": 500,
         "temperature": 0.7
     }
-    response = requests.post(
-        f"{OPENROUTER_BASE_URL}/chat/completions",
-        headers=headers,
-        json=data,
-        timeout=30
-    )
-    if response.status_code == 200:
-        result = response.json()
-        print(result)
-        return result['choices'][0]['message']['content'].strip()
-    return base_answer
+    try:
+        response = requests.post(
+            f"{OPENROUTER_BASE_URL}/chat/completions",
+            headers=headers,
+            json=data,
+            timeout=30
+        )
+        if response.status_code == 200:
+            result = response.json()
+            print(result)
+            return result['choices'][0]['message']['content'].strip()
+        else:
+            print(f"OpenRouter API error: {response.status_code}")
+            return base_answer
+    except Exception as e:
+        print(f"OpenRouter connection error: {e}")
+        return base_answer
 
 @app.post("/chat")
 def chat(q: Query):
@@ -161,3 +197,11 @@ def chat(q: Query):
 @app.get("/")
 def root():
     return {"message": "Semantic Fitness Chatbot is running!"}
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "kb_loaded": len(kb) if 'kb' in globals() else 0,
+        "corpus_size": len(corpus) if 'corpus' in globals() else 0
+    }
