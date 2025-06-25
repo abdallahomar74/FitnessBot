@@ -24,7 +24,7 @@ corpus = [item['question'] for item in kb if item['type'] == 'qa']
 answers = [item['answer'] for item in kb if item['type'] == 'qa']
 
 # تحميل نموذج sentence-transformers
-model = SentenceTransformer('all-MiniLM-L6-v2')
+model = SentenceTransformer('paraphrase-MiniLM-L3-v2')
 corpus_embeddings = model.encode(corpus, convert_to_tensor=True)
 
 # إنشاء تطبيق FastAPI
